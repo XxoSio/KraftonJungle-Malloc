@@ -36,17 +36,21 @@ team_t team = {
 };
 
 /* single word (4) or double word (8) alignment */
+// 더블 워드 사이즈인 8을 ALIGNMENT에 정의
 #define ALIGNMENT 8
 
 /* rounds up to the nearest multiple of ALIGNMENT */
+// ALIGNMENT와 가장 근접한 8의 배수(ALIGNMENT 배수)로 반올림
 #define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~0x7)
 
-
+// size_t를 통해 size 결정
+// *size_t는 64비트 환경에서 64비트를 가짐
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
 /* 
  * mm_init - initialize the malloc package.
  */
+// malloc 초기화
 int mm_init(void)
 {
     return 0;
@@ -56,6 +60,8 @@ int mm_init(void)
  * mm_malloc - Allocate a block by incrementing the brk pointer.
  *     Always allocate a block whose size is a multiple of the alignment.
  */
+// brk 포인터를 증가하여 블록을 할당
+// 크기가 항상 정렬의 배수인 블록을 할당함
 void *mm_malloc(size_t size)
 {
     int newsize = ALIGN(size + SIZE_T_SIZE);
@@ -71,6 +77,7 @@ void *mm_malloc(size_t size)
 /*
  * mm_free - Freeing a block does nothing.
  */
+// 블록의 할당을 해제함
 void mm_free(void *ptr)
 {
 }
