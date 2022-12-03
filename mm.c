@@ -49,6 +49,61 @@ team_t team = {
 // long형인 size_t의 크기만큼 8을 나타내는 매크로
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
+
+// 기본 상수와 매크로 정의
+
+/*
+    기본 단위인 word, double word, 새로 할당받는 힙의 크기 CHUNKSIZE를 정의
+*/
+// word와 header,footer 사이즈
+#define WSIZE 4
+// double word size(byte)
+#define DSIZE 4
+// 힙을 1<<12 만큼 연장 -> 4096byte
+#define CHUNKSIZE (1<<12)
+
+// 최댓값을 구하는 함수 매크로
+#define MAX ((x) > (y) ? (x) : (y))
+
+/*
+    header 및 footer 값 (size + allocated) 리턴
+*/
+#define PACK(size, alloc) ((size) | (alloc))
+
+/*
+    주소 p에서의 word를 읽어오거나 쓰는 함수
+*/
+#define GET(p) (*(unsigned int *)(p))
+// 주소 p에 val을 넣어줌
+#define PUT(p, val) (*(unsigned int *)(p) = (val))
+
+/*
+    header or footer에서 블록의 size, allocated field를 읽어옴
+*/
+// GET(p)로 읽어오는 주소는 8의 배수와 7을 뒤집은 1111 1000 AND 연산
+// 정확히 블록 크기(뒷 세자리는 제외)만 읽어오기 가능
+#define GET_SIZE(p) (GET(p) & ~0x7)
+// GET(p)로 읽어오는 주소는 8의 배수와 0000 0001과 AND 연산
+// 끝자리가 1이면 할당, 0이면 해제
+#define GET_ALLOC(p) (GET(p) & 0x1)
+
+/*
+    블록 포인터 bp를 인자로 받아 header와 footer의 주소를 반환
+*/
+// header 포인터 : bp의 주소를 받아서 한 워드 사이즈 앞으로 가면 헤더가 있음
+#define HDRP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE)))
+// footer 포인터 : 현재 블록 포인터 주소에서 전체 사이즈만큼 더해주고 맨앞 패딩 + header 만큼 빼줘야 footer를 가리킴
+// 전체 사이즈를 알려면 HDRP(bp)로 전체 사이즈를 알아내야함
+#define FTRP(bp) ((char *)(bp) + GET_SIZE(HDRP(bp) - DSIZE))
+
+/*
+    블록 포인터 bp를 인자로 받아, 이전 블록의 주소를 리턴
+*/
+// 현재 블록 포인터에서 전체 블록 사이즈만큼 더하고 헤더 워드 사이즈 하나 빼면 다음 블록 포인터
+#define NEXT_BLKP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE)))
+//현재 블록 포인터에서 더블워드만큼 빼면 이전 블록 헤더 -> 다음 블록 footer로 가서 사이즈 읽어내기 가능
+#define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
+
 /* 
  * mm_init - initialize the malloc package.
  */
