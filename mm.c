@@ -104,10 +104,10 @@ team_t team = {
 //현재 블록 포인터에서 더블워드만큼 빼면 이전 블록 헤더 -> 다음 블록 footer로 가서 사이즈 읽어내기 가능
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
-static void *heap_listp;
+static char *heap_listp;
 
 // 사용하는  함수들 선언
-// int mm_inti(void);
+// int mm_init(void);
 static void *extend_heap(size_t words);
 // void mm_free(void *bp);
 static void *coalesce(void *bp);
@@ -139,7 +139,7 @@ int mm_init(void)
     // heap_listp += (DSIZE);
 
     // CHUNKSIZE 사이즈 만큼 힙을 확장해 초기 가용 블록 생성
-    if(extend_heap((CHUNKSIZE/WSIZE) == NULL))
+    if(extend_heap(CHUNKSIZE/WSIZE) == NULL)
         return -1;
         
     return 0;
