@@ -115,8 +115,10 @@ static void *coalesce(void *bp);
 static void *find_fit(size_t asize);
 static void place(void *bp, size_t asize);
 
+static void *first_fit(size_t asize);
 // next-fit을 사용하기 위해 이전 bp를 저장하는 전역변수
 static void *last_bp;
+static void *next_fit(size_t asize);
 
 /* 
  * mm_init - initialize the malloc package.
@@ -345,25 +347,32 @@ void *mm_malloc(size_t size)
 // 요청받은 asize에 맞는 가용 블록 탐색
 static void *find_fit(size_t asize)
 {
-    /* first_fit */
+    // return first_fit(asize);
+    return next_fit(asize);
+}
+
+static void *first_fit(size_t asize){
     // bp 선언
     void *bp;
 
-    // // init에서 쓴 heap_listp 사용
-    // // 처음에서 출발하여 헤더의 사이즈가 0이 될때(에필로그 헤더의 크기 = 0)까지 다음 블록으로 넘거가며 탐색
-    // for(bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
-    //     // 찾은 블록이 가용 블록이면서 사이즈가 asize보다 클 경우
-    //     // 요청한 asize를 할당할 수 있음
-    //     if(!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))){
-    //         // bp 반환
-    //         return bp;
-    //     }
-    // }
-    // // 맞는 가용 블록이 없을 경우 NULL 리턴
-    // return NULL;
+    // init에서 쓴 heap_listp 사용
+    // 처음에서 출발하여 헤더의 사이즈가 0이 될때(에필로그 헤더의 크기 = 0)까지 다음 블록으로 넘거가며 탐색
+    for(bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
+        // 찾은 블록이 가용 블록이면서 사이즈가 asize보다 클 경우
+        // 요청한 asize를 할당할 수 있음
+        if(!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))){
+            // bp 반환
+            return bp;
+        }
+    }
+    // 맞는 가용 블록이 없을 경우 NULL 리턴
+    return NULL;
+}
 
-    /* next-fit */
-    for(bp = last_bp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
+static void *next_fit(size_t asize){
+    void *bp;
+
+        for(bp = last_bp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
         if(!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))){
             // 탐색을 끝낸 bp의 위치로 last_bp 변경
             last_bp = bp;
@@ -379,7 +388,7 @@ static void *find_fit(size_t asize)
             return bp;
         }
     }    
-    
+
     return NULL;
 }
 
