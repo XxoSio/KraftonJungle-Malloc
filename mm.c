@@ -63,7 +63,7 @@ team_t team = {
 #define CHUNKSIZE (1<<12)
 
 // 최댓값을 구하는 함수 매크로
-#define MAX ((x) > (y) ? (x) : (y))
+#define MAX(x, y) ((x) > (y) ? (x) : (y))
 
 /*
     header 및 footer 값 (size + allocated) 리턴
@@ -107,10 +107,11 @@ team_t team = {
 static void *heap_listp;
 
 // 사용하는  함수들 선언
-int mm_inti(void);
-void *extend_heap(size_t words);
-void mm_free(void *bp);
-void *coalesce(void *bp);
+// int mm_inti(void);
+static void *extend_heap(size_t words);
+// void mm_free(void *bp);
+static void *coalesce(void *bp);
+// void *mm_malloc(size_t size)
 
 /* 
  * mm_init - initialize the malloc package.
@@ -146,7 +147,7 @@ int mm_init(void)
     extends the heap with a free block
 */
 // 워드 단위 메모리로 인자를 받아 가용 블록으로 힙 확장
-void *extend_heap(size_t words)
+static void *extend_heap(size_t words)
 {
     char *bp;
     size_t size;
@@ -200,7 +201,7 @@ void mm_free(void *bp)
     coalesce - uses boundary-tag coalescing to merge it with any adjacent free bloacks in constant time
 */
 // 해당 가용 블록을 앞뒤 가용 블록과 연결하고 연결된 가용 블록의 주소를 리턴
-void *coalesce(void *bp)
+static void *coalesce(void *bp)
 {
     // 직전 블록의 풋터, 직후 블록의 헤더를 보고 가용 블록인지 확인
     // 직전 블록 가용 상태 확인
@@ -262,16 +263,68 @@ void *coalesce(void *bp)
  * mm_malloc - Allocate a block by incrementing the brk pointer.
  *     Always allocate a block whose size is a multiple of the alignment.
  */
+// 
 void *mm_malloc(size_t size)
 {
-    int newsize = ALIGN(size + SIZE_T_SIZE);
-    void *p = mem_sbrk(newsize);
-    if (p == (void *)-1)
-	return NULL;
-    else {
-        *(size_t *)p = size;
-        return (void *)((char *)p + SIZE_T_SIZE);
+    // 기존 malloc 코드
+    // int newsize = ALIGN(size + SIZE_T_SIZE);
+    // void *p = mem_sbrk(newsize);
+    // if (p == (void *)-1)
+	// return NULL;
+    // else {
+    //     *(size_t *)p = size;
+    //     return (void *)((char *)p + SIZE_T_SIZE);
+    // }
+
+    /* Adjusted block size */
+    // 블록 사이즈 조정
+    size_t asize;
+    /* Amount to extend heap if  no fit */
+    // 힙에 맞는 fit이 없으면 확장하기 위한 사이즈
+    size_t extendsize;
+    // 블록 포인터
+    char *bp;
+
+    /* Ingnore spurious requests */
+    // 잘못된 요청 무시
+    // 인자로 받은 사이즈가 0이니까 할당할 필요 없음
+    if (size == 0)
+        return NULL;
+    
+    /* Adjusted block size to include overhead abd alignment reqs */
+    // overhead, 정렬 요청을 포함한 블록 사이즈 조정
+    // 사이즈가 정렬의 크기보다 작을때
+    if(size <= DSIZE)
+        // 블록의 최소크기를 맞추기 위해 사이즈 조정
+        // 헤더(4byte) + 풋터(4byte) + 데이터(1byte 이상) = 9byte 이상
+        // 8의 배수로 만들어야 하므로 블록의 최소 크기는 16byte
+        asize = 2*DSIZE;
+    // // 사이즈가 정렬의 크기보다 클때
+    else
+        // 블록이 가질 수 있는 크기중 최적화된 크기로 재조정
+        asize = DSIZE * ((size + (DSIZE) + (DSIZE-1)) / DSIZE);
+
+    /* Search the free list for a fit */
+    // finsd_fit에서 맞는 free 리스트를 찾음
+    if((bp = find_fit(asize)) != NULL){
+        // 필요하다면 분할하여 할당
+        place(bp, asize);
+        // place를 마친 블록의 포인터를 리턴
+        return bp;
     }
+
+    /* No fit found. Get more memory and place the block*/
+    // 만약 맞는 크기의 가용 블록이 없다면, 힙을 확장하여 메모리 할당
+    // asize와 CHUNKSIZE(우리가 처음에 세팅한 사이즈)  중 더 큰 값으로 사이즈를 정함
+    extendsize = MAX(asize, CHUNKSIZE);
+    // extendsize만큼 힙을 확장해 추가적인 가용블록 생성
+    if((bp = extend_heap(extendsize/WSIZE)) == NULL)
+        return NULL;
+    
+    // 분할하여 할당
+    place(bp, asize);
+    // place를 마친 블록 포인터를 리턴
+    return bp;
 }
 
 /*
