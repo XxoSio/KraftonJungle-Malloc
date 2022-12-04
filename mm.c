@@ -106,7 +106,6 @@ team_t team = {
 
 // 사용하는  함수들 선언
 int mm_inti(void);
-void *extend_heap(size_t words);
 
 /* 
  * mm_init - initialize the malloc package.
