@@ -378,9 +378,9 @@ static void place(void *bp, size_t asize)
     // size가 asize의 크기와 같음 -> asize만 size에 들어갈 수 있음
     else{
         // 헤더에 asize를 넣고 할당 상태를 1(alloced)로 변경
-        PUT(HDRP(bp), PACK(asize, 1));
+        PUT(HDRP(bp), PACK(size, 1));
         // 풋터도 변경
-        PUT(FTRP(bp), PACK(asize, 1));
+        PUT(FTRP(bp), PACK(size, 1));
     }
 }
 
