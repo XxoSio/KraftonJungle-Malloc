@@ -263,7 +263,8 @@ static void *coalesce(void *bp)
  * mm_malloc - Allocate a block by incrementing the brk pointer.
  *     Always allocate a block whose size is a multiple of the alignment.
  */
-// 
+// brk 포인터를 증가시켜 블록을 할당함
+// 항상 크기가 정렬의 배수로 블록 할당
 void *mm_malloc(size_t size)
 {
     // 기존 malloc 코드
