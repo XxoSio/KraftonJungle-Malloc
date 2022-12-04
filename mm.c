@@ -107,6 +107,7 @@ team_t team = {
 // 사용하는  함수들 선언
 int mm_inti(void);
 void *extend_heap(size_t words);
+void mm_free(void *bp);
 
 /* 
  * mm_init - initialize the malloc package.
@@ -178,8 +179,19 @@ void *extend_heap(size_t words){
  * mm_free - Freeing a block does nothing.
  */
 // 블록의 할당을 해제함
-void mm_free(void *ptr)
+void mm_free(void *bp)
 {
+    // 해당 블록의 size를 알아내 헤더와 풋터의 정보를 수정
+    size_t size = GET_SIZE(HDRP(bp));
+    
+    // 헤더와 풋터를 설정
+    // size/0을 헤더에 입력
+    PUT(HDRP(bp), PACK(size, 0));
+    // size/0을 풋터에 입력
+    PUT(FTRP(bp), PACK(size, 0));
+
+    // 앞, 뒤의 가용 상태 확인후, 연결
+    coalesce(bp);
 }
 
 /*
