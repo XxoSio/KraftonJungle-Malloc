@@ -112,6 +112,8 @@ static void *extend_heap(size_t words);
 // void mm_free(void *bp);
 static void *coalesce(void *bp);
 // void *mm_malloc(size_t size)
+static void *find_fit(size_t asize);
+static void place(void *bp, size_t asize);
 
 /* 
  * mm_init - initialize the malloc package.
@@ -171,7 +173,7 @@ static void *extend_heap(size_t words)
     // 가용 블록 풋터
     PUT(FTRP(bp), PACK(size, 0));
     // 새로운 에필로그 블록
-    PUT(HDRP(NEXT_BLKP(bp)), pcak(0, 1));
+    PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));
 
     /* Coalesce if the previous block was free*/
     // 만약 이전 블록이 가용 블록이라면 연결
@@ -326,6 +328,44 @@ void *mm_malloc(size_t size)
     place(bp, asize);
     // place를 마친 블록 포인터를 리턴
     return bp;
+}
+
+static void *find_fit(size_t asize)
+{
+
+}
+
+// 들어갈 위치를 포인터로 받음(first_fit에서 찾는 bp, 크기는 asize로 받음)
+// 요청한 블록을 가용 블록의 시작 부분에 배치
+// 나머지 부분의 크기가 최소 블록 크기와 같거나 큰 경우에만 분할하는 함수
+static void place(void *bp, size_t asize)
+{
+    // 현재 블록 사이즈
+    size_t size = GET_SIZE(HDRP(bp));
+
+    // 현재 블록 사이즈 안에 요청받은 asize를 넣어도
+    // 2*DSIZE(헤더와 풋터를 감안한 최소 사이즈) 이상 남는 경우
+    if((size - asize) >= 2*DSIZE){
+        // 헤더위치에 asize만큼 넣고 할당 상태를 1(alloced)로 변경
+        PUT(HDRP(bp), PACK(asize, 1));
+        // 풋터의 size도 asize로 변경
+        PUT(FTRP(bp), PACK(asize, 1));
+
+        // 다음 블록으로의 이동을 위해 bp위치 갱신
+        bp = NEXT_BLKP(bp);
+
+        // 나머지 블록(size - asize)은 할당 상태를 0(free)으로 표시
+        PUT(HDRP(bp), PACK(size - asize, 0));
+        // 풋터의 표시
+        PUT(FTRP(bp), PACK(size - asize, 0));
+    }
+    // size가 asize의 크기와 같음 -> asize만 size에 들어갈 수 있음
+    else{
+        // 헤더에 asize를 넣고 할당 상태를 1(alloced)로 변경
+        PUT(HDRP(bp), PACK(asize, 1));
+        // 풋터도 변경
+        PUT(FTRP(bp), PACK(asize, 1));
+    }
 }
 
 /*
