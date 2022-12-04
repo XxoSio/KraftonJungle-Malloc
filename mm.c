@@ -104,31 +104,40 @@ team_t team = {
 //현재 블록 포인터에서 더블워드만큼 빼면 이전 블록 헤더 -> 다음 블록 footer로 가서 사이즈 읽어내기 가능
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
+// 사용하는  함수들 선언
+int mm_inti(void);
+void *extend_heap(size_t words);
+
 /* 
  * mm_init - initialize the malloc package.
  */
 // malloc 초기화
 int mm_init(void)
 {
-    return 0;
-}
+    void *heap_listp;
 
-/* 
- * mm_malloc - Allocate a block by incrementing the brk pointer.
- *     Always allocate a block whose size is a multiple of the alignment.
- */
-// brk 포인터를 증가하여 블록을 할당
-// 크기가 항상 정렬의 배수인 블록을 할당함
-void *mm_malloc(size_t size)
-{
-    int newsize = ALIGN(size + SIZE_T_SIZE);
-    void *p = mem_sbrk(newsize);
-    if (p == (void *)-1)
-	return NULL;
-    else {
-        *(size_t *)p = size;
-        return (void *)((char *)p + SIZE_T_SIZE);
-    }
+    // 비어있는 초기 힙 생성
+    if((heap_listp = mem_sbrk(4*WSIZE)) == (void *) -1)
+        return -1;
+    
+    // 정렬 패딩
+    PUT(heap_listp, 0);
+    // 프롤로그 헤더
+    PUT(heap_listp + (1*WSIZE), PACK(DSIZE, 1));
+    // 프롤로그 풋터
+    PUT(heap_listp + (2*WSIZE), PACK(DSIZE, 1));
+    //에필로그 헤더
+    PUT(heap_listp + (3*WSIZE), PACK(0, 1));
+
+    // 더블워드 정렬을 사용하기 때문에 더블워드 사이즈만큼 증가
+    heap_listp += (2*WSIZE);
+    // heap_listp += (DSIZE);
+
+    // CHUNKSIZE 사이즈 만큼 힙을 확장해 초기 가용 블록 생성
+    if(extend_heap((CHUNKSIZE/WSIZE) == NULL))
+        return -1;
+        
+    return 0;
 }
 
 /*
