@@ -248,7 +248,7 @@ static void *coalesce(void *bp)
     // 이전 블록과 현재 블록 모두 가용 상태인 경우
     else {
         // 이전 블록과 다음 블록의 헤더로 사이즈를 받아와 현재 블록 사이즈에 더함
-        size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
+        size += GET_SIZE(FTRP(PREV_BLKP(bp))) + GET_SIZE(HDRP(NEXT_BLKP(bp)));
         // 이전 블록의 헤더 갱신
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
         // 다음 블록의 풋터 갱신
