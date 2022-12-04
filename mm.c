@@ -351,6 +351,7 @@ static void *find_fit(size_t asize)
     return next_fit(asize);
 }
 
+// 메모리의 처음부터 끝까지 검사해서 크기가 충분한 첫번째 메모리 할당
 static void *first_fit(size_t asize){
     // bp 선언
     void *bp;
@@ -369,6 +370,7 @@ static void *first_fit(size_t asize){
     return NULL;
 }
 
+// 이전 검색이 종료된 지점부터 검사 시작
 static void *next_fit(size_t asize){
     void *bp;
 
