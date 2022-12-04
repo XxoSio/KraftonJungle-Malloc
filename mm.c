@@ -248,7 +248,7 @@ static void *coalesce(void *bp)
     // 이전 블록과 현재 블록 모두 가용 상태인 경우
     else {
         // 이전 블록과 다음 블록의 헤더로 사이즈를 받아와 현재 블록 사이즈에 더함
-        size += GET_SIZE(FTRP(PREV_BLKP(bp))) + GET_SIZE(HDRP(NEXT_BLKP(bp)));
+        size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
         // 이전 블록의 헤더 갱신
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
         // 다음 블록의 풋터 갱신
@@ -342,7 +342,7 @@ static void *find_fit(size_t asize)
     for(bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(HDRP(bp))){
         // 찾은 블록이 가용 블록이면서 사이즈가 asize보다 클 경우
         // 요청한 asize를 할당할 수 있음
-        if(!GET_ALLOC(HDRP(bp)) && GET_SIZE(HDRP(bp))){
+        if(!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))){
             // bp 반환
             return bp;
         }
