@@ -115,6 +115,7 @@ static void *coalesce(void *bp);
 static void *find_fit(size_t asize);
 static void place(void *bp, size_t asize);
 
+// next-fit을 사용하기 위해 이전 bp를 저장하는 전역변수
 static void *last_bp;
 
 /* 
@@ -137,13 +138,14 @@ int mm_init(void)
     PUT(heap_listp + (3*WSIZE), PACK(0, 1));
 
     // 더블워드 정렬을 사용하기 때문에 더블워드 사이즈만큼 증가
-    heap_listp += (2*WSIZE);
-    // heap_listp += (DSIZE);
+    // heap_listp += (2*WSIZE);
+    heap_listp += (DSIZE);
 
     // CHUNKSIZE 사이즈 만큼 힙을 확장해 초기 가용 블록 생성
     if(extend_heap(CHUNKSIZE/WSIZE) == NULL)
         return -1;
     
+    // 초기화시에 last_bp를 heap_listp의 처음으로 잡아줌
     last_bp = heap_listp;
 
     return 0;
@@ -221,7 +223,9 @@ static void *coalesce(void *bp)
     // 이전과 다음 블록 모두가 할당되어 있는 경우
     if(prev_alloc && next_alloc)
     {
+        // 연결한 가용 블록의 bp로 last_bp 수정
         last_bp = bp;
+
         // 이미 free에서 가용되었으니 여기서는 따로 free할 필요없음
         // 현재 블록만 반환
         return bp;
@@ -262,7 +266,9 @@ static void *coalesce(void *bp)
         bp = PREV_BLKP(bp);
     }
 
+    // 연결한 가용 블록의 bp로 last_bp 수정
     last_bp = bp;
+
     // 위 4개의 case중 한개를 마치고 블록 포인터 리턴
     return bp;
 }
@@ -359,17 +365,21 @@ static void *find_fit(size_t asize)
     /* next-fit */
     for(bp = last_bp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
         if(!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))){
+            // 탐색을 끝낸 bp의 위치로 last_bp 변경
             last_bp = bp;
             return bp;
         }
     }
 
+    // 만약 이전 탐색 위치(last_bp)에서 끝까지중 맞는 가용 블록이 없을경우
+    // 처음부터 이전 탐색 위치(last_bp)까지 탐색
     for(bp = heap_listp; bp < last_bp; bp = NEXT_BLKP(bp)){
         if(!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))){
             last_bp = bp;
             return bp;
         }
     }    
+    
     return NULL;
 }
 
