@@ -115,6 +115,8 @@ static void *coalesce(void *bp);
 static void *find_fit(size_t asize);
 static void place(void *bp, size_t asize);
 
+static void *last_bp;
+
 /* 
  * mm_init - initialize the malloc package.
  */
@@ -141,7 +143,9 @@ int mm_init(void)
     // CHUNKSIZE 사이즈 만큼 힙을 확장해 초기 가용 블록 생성
     if(extend_heap(CHUNKSIZE/WSIZE) == NULL)
         return -1;
-        
+    
+    last_bp = heap_listp;
+
     return 0;
 }
 
@@ -217,6 +221,7 @@ static void *coalesce(void *bp)
     // 이전과 다음 블록 모두가 할당되어 있는 경우
     if(prev_alloc && next_alloc)
     {
+        last_bp = bp;
         // 이미 free에서 가용되었으니 여기서는 따로 free할 필요없음
         // 현재 블록만 반환
         return bp;
@@ -257,6 +262,7 @@ static void *coalesce(void *bp)
         bp = PREV_BLKP(bp);
     }
 
+    last_bp = bp;
     // 위 4개의 case중 한개를 마치고 블록 포인터 리턴
     return bp;
 }
@@ -337,17 +343,33 @@ static void *find_fit(size_t asize)
     // bp 선언
     void *bp;
 
-    // init에서 쓴 heap_listp 사용
-    // 처음에서 출발하여 헤더의 사이즈가 0이 될때(에필로그 헤더의 크기 = 0)까지 다음 블록으로 넘거가며 탐색
-    for(bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
-        // 찾은 블록이 가용 블록이면서 사이즈가 asize보다 클 경우
-        // 요청한 asize를 할당할 수 있음
+    // // init에서 쓴 heap_listp 사용
+    // // 처음에서 출발하여 헤더의 사이즈가 0이 될때(에필로그 헤더의 크기 = 0)까지 다음 블록으로 넘거가며 탐색
+    // for(bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
+    //     // 찾은 블록이 가용 블록이면서 사이즈가 asize보다 클 경우
+    //     // 요청한 asize를 할당할 수 있음
+    //     if(!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))){
+    //         // bp 반환
+    //         return bp;
+    //     }
+    // }
+    // // 맞는 가용 블록이 없을 경우 NULL 리턴
+    // return NULL;
+
+    /* next-fit */
+    for(bp = last_bp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
         if(!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))){
-            // bp 반환
+            last_bp = bp;
             return bp;
         }
     }
-    // 맞는 가용 블록이 없을 경우 NULL 리턴
+
+    for(bp = heap_listp; bp < last_bp; bp = NEXT_BLKP(bp)){
+        if(!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))){
+            last_bp = bp;
+            return bp;
+        }
+    }    
     return NULL;
 }
 
