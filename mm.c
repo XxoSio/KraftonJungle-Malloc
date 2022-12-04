@@ -94,7 +94,7 @@ team_t team = {
 #define HDRP(bp) ((char *)(bp) - WSIZE)
 // footer 포인터 : 현재 블록 포인터 주소에서 전체 사이즈만큼 더해주고 맨앞 패딩 + header 만큼 빼줘야 footer를 가리킴
 // 전체 사이즈를 알려면 HDRP(bp)로 전체 사이즈를 알아내야함
-#define FTRP(bp) ((char *)(bp) + GET_SIZE(HDRP(bp) - DSIZE))
+#define FTRP(bp) ((char *)(bp) + GET_SIZE(HDRP(bp)) - DSIZE)
 
 /*
     블록 포인터 bp를 인자로 받아, 이전 블록의 주소를 리턴
@@ -361,7 +361,7 @@ static void place(void *bp, size_t asize)
 
     // 현재 블록 사이즈 안에 요청받은 asize를 넣어도
     // 2*DSIZE(헤더와 풋터를 감안한 최소 사이즈) 이상 남는 경우
-    if((csize - asize) >= 2*DSIZE){
+    if((csize - asize) >= (2*DSIZE)){
         // 헤더위치에 asize만큼 넣고 할당 상태를 1(alloced)로 변경
         PUT(HDRP(bp), PACK(asize, 1));
         // 풋터의 size도 asize로 변경
