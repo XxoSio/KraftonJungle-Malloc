@@ -106,6 +106,7 @@ team_t team = {
 
 // 사용하는  함수들 선언
 int mm_inti(void);
+void *extend_heap(size_t words);
 
 /* 
  * mm_init - initialize the malloc package.
@@ -137,6 +138,40 @@ int mm_init(void)
         return -1;
         
     return 0;
+}
+
+/*
+    extends the heap with a free block
+*/
+// 워드 단위 메모리로 인자를 받아 가용 블록으로 힙 확장
+void *extend_heap(size_t words){
+    char *bp;
+    size_t size;
+
+    /* Allocate an even number of words to maintain alignment */
+    // size를 짝수 word && byte 형태로 만듦
+    size = (words % 2) ? (words+1) * WSIZE : words * WSIZE;
+
+    // 더블 워드 정렬에 따라 메모리를 mem_sbrk 함수를 이용해 할당 받음
+    // mm_sbrk는 힙 용량을 추가로 받아오는 함수
+    // 새로운 메모리의 첫 부분을 bp로 둠
+    // 주소값은 int로 못받으니 long으로 type casting
+    if ((long)(bp = mem_sbrk(size)) == -1){
+        return NULL;
+    }
+
+    /* Initialize free block header/footer and the epologue header */
+    // 가용 블록의 헤더와 풋터 그리고 에필로그 헤더 초기화
+    // 가용 블록 헤더
+    PUT(HDRP(bp), PACK(size, 0));
+    // 가용 블록 풋터
+    PUT(FTRP(bp), PACK(size, 0));
+    // 새로운 에필로그 블록
+    PUT(HDRP(NEXT_BLKP(bp)), pcak(0, 1));
+
+    /* Coalesce if the previous block was free*/
+    // 만약 이전 블록이 가용 블록이라면 연결
+    return coalesce(bp);
 }
 
 /*
