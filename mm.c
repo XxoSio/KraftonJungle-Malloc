@@ -58,7 +58,7 @@ team_t team = {
 // word와 header,footer 사이즈
 #define WSIZE 4
 // double word size(byte)
-#define DSIZE 4
+#define DSIZE 8
 // 힙을 1<<12 만큼 연장 -> 4096byte
 #define CHUNKSIZE (1<<12)
 
@@ -91,7 +91,7 @@ team_t team = {
     블록 포인터 bp를 인자로 받아 header와 footer의 주소를 반환
 */
 // header 포인터 : bp의 주소를 받아서 한 워드 사이즈 앞으로 가면 헤더가 있음
-#define HDRP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE)))
+#define HDRP(bp) ((char *)(bp) - WSIZE)
 // footer 포인터 : 현재 블록 포인터 주소에서 전체 사이즈만큼 더해주고 맨앞 패딩 + header 만큼 빼줘야 footer를 가리킴
 // 전체 사이즈를 알려면 HDRP(bp)로 전체 사이즈를 알아내야함
 #define FTRP(bp) ((char *)(bp) + GET_SIZE(HDRP(bp) - DSIZE))
@@ -339,7 +339,7 @@ static void *find_fit(size_t asize)
 
     // init에서 쓴 heap_listp 사용
     // 처음에서 출발하여 헤더의 사이즈가 0이 될때(에필로그 헤더의 크기 = 0)까지 다음 블록으로 넘거가며 탐색
-    for(bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(HDRP(bp))){
+    for(bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
         // 찾은 블록이 가용 블록이면서 사이즈가 asize보다 클 경우
         // 요청한 asize를 할당할 수 있음
         if(!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))){
@@ -357,11 +357,11 @@ static void *find_fit(size_t asize)
 static void place(void *bp, size_t asize)
 {
     // 현재 블록 사이즈
-    size_t size = GET_SIZE(HDRP(bp));
+    size_t csize = GET_SIZE(HDRP(bp));
 
     // 현재 블록 사이즈 안에 요청받은 asize를 넣어도
     // 2*DSIZE(헤더와 풋터를 감안한 최소 사이즈) 이상 남는 경우
-    if((size - asize) >= 2*DSIZE){
+    if((csize - asize) >= 2*DSIZE){
         // 헤더위치에 asize만큼 넣고 할당 상태를 1(alloced)로 변경
         PUT(HDRP(bp), PACK(asize, 1));
         // 풋터의 size도 asize로 변경
@@ -371,16 +371,16 @@ static void place(void *bp, size_t asize)
         bp = NEXT_BLKP(bp);
 
         // 나머지 블록(size - asize)은 할당 상태를 0(free)으로 표시
-        PUT(HDRP(bp), PACK(size - asize, 0));
+        PUT(HDRP(bp), PACK(csize - asize, 0));
         // 풋터의 표시
-        PUT(FTRP(bp), PACK(size - asize, 0));
+        PUT(FTRP(bp), PACK(csize - asize, 0));
     }
     // size가 asize의 크기와 같음 -> asize만 size에 들어갈 수 있음
     else{
         // 헤더에 asize를 넣고 할당 상태를 1(alloced)로 변경
-        PUT(HDRP(bp), PACK(size, 1));
+        PUT(HDRP(bp), PACK(csize, 1));
         // 풋터도 변경
-        PUT(FTRP(bp), PACK(size, 1));
+        PUT(FTRP(bp), PACK(csize, 1));
     }
 }
 
@@ -396,7 +396,8 @@ void *mm_realloc(void *ptr, size_t size)
     newptr = mm_malloc(size);
     if (newptr == NULL)
       return NULL;
-    copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
+    // copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
+    copySize = GET_SIZE(HDRP(oldptr));
     if (size < copySize)
       copySize = size;
     memcpy(newptr, oldptr, copySize);
