@@ -104,10 +104,13 @@ team_t team = {
 //현재 블록 포인터에서 더블워드만큼 빼면 이전 블록 헤더 -> 다음 블록 footer로 가서 사이즈 읽어내기 가능
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
+static void *heap_listp;
+
 // 사용하는  함수들 선언
 int mm_inti(void);
 void *extend_heap(size_t words);
 void mm_free(void *bp);
+void *coalesce(void *bp);
 
 /* 
  * mm_init - initialize the malloc package.
@@ -115,8 +118,6 @@ void mm_free(void *bp);
 // malloc 초기화
 int mm_init(void)
 {
-    void *heap_listp;
-
     // 비어있는 초기 힙 생성
     if((heap_listp = mem_sbrk(4*WSIZE)) == (void *) -1)
         return -1;
@@ -145,7 +146,8 @@ int mm_init(void)
     extends the heap with a free block
 */
 // 워드 단위 메모리로 인자를 받아 가용 블록으로 힙 확장
-void *extend_heap(size_t words){
+void *extend_heap(size_t words)
+{
     char *bp;
     size_t size;
 
@@ -185,13 +187,75 @@ void mm_free(void *bp)
     size_t size = GET_SIZE(HDRP(bp));
     
     // 헤더와 풋터를 설정
-    // size/0을 헤더에 입력
+    // 헤더 갱신
     PUT(HDRP(bp), PACK(size, 0));
-    // size/0을 풋터에 입력
+    // 풋터 갱신
     PUT(FTRP(bp), PACK(size, 0));
 
     // 앞, 뒤의 가용 상태 확인후, 연결
     coalesce(bp);
+}
+
+/* 
+    coalesce - uses boundary-tag coalescing to merge it with any adjacent free bloacks in constant time
+*/
+// 해당 가용 블록을 앞뒤 가용 블록과 연결하고 연결된 가용 블록의 주소를 리턴
+void *coalesce(void *bp)
+{
+    // 직전 블록의 풋터, 직후 블록의 헤더를 보고 가용 블록인지 확인
+    // 직전 블록 가용 상태 확인
+    size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
+    // 직후 블록 가용 상태 확인
+    size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
+    // 지금 블록의 헤더 사이즈
+    size_t size = GET_SIZE(HDRP(bp));
+
+    // case 1
+    // 이전과 다음 블록 모두가 할당되어 있는 경우
+    if(prev_alloc && next_alloc)
+    {
+        // 이미 free에서 가용되었으니 여기서는 따로 free할 필요없음
+        // 현재 블록만 반환
+        return bp;
+    }
+    // case 2
+    // 이전 블록은 할당, 다음 블록은 가용 상태인 경우
+    // 현재 블록과 다음 블록을 연결
+    else if(prev_alloc && !next_alloc){
+        // 다음 블록의 헤더로 다음 블록의 사이즈를 받아와 현재 블록 사이즈에 더함
+        size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
+        // 헤더 갱신
+        PUT(HDRP(bp), PACK(size, 0));
+        // 풋터 갱신
+        PUT(FTRP(bp), PACK(size, 0));
+    }
+    // case 3
+    // 이전 블록은 가용, 다음 블록은 할당 상태인 경우
+    else if(!prev_alloc && next_alloc){
+        // 이전 블록의 헤더로 사이즈를 받아와 현재 블록 사이즈에 더함
+        size += GET_SIZE(HDRP(PREV_BLKP(bp)));
+        // 풋터 갱신
+        PUT(FTRP(bp), PACK(size, 0));
+        // 이전 블록의 헤더 생긴
+        PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
+        // 현재 블록 포인터를 이전 블록 포인터로 갱신
+        bp = PREV_BLKP(bp);
+    }
+    // case 4
+    // 이전 블록과 현재 블록 모두 가용 상태인 경우
+    else {
+        // 이전 블록과 다음 블록의 헤더로 사이즈를 받아와 현재 블록 사이즈에 더함
+        size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
+        // 이전 블록의 헤더 갱신
+        PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
+        // 다음 블록의 풋터 갱신
+        PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
+        // 현재 블록 포인터는 이전 블록 포인터로 갱신
+        bp = PREV_BLKP(bp);
+    }
+
+    // 위 4개의 case중 한개를 마치고 블록 포인터 리턴
+    return bp;
 }
 
 /*
