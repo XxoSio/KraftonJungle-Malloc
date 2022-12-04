@@ -330,9 +330,25 @@ void *mm_malloc(size_t size)
     return bp;
 }
 
+// 요청받은 asize에 맞는 가용 블록 탐색
 static void *find_fit(size_t asize)
 {
+    /* first_fit */
+    // bp 선언
+    void *bp;
 
+    // init에서 쓴 heap_listp 사용
+    // 처음에서 출발하여 헤더의 사이즈가 0이 될때(에필로그 헤더의 크기 = 0)까지 다음 블록으로 넘거가며 탐색
+    for(bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(HDRP(bp))){
+        // 찾은 블록이 가용 블록이면서 사이즈가 asize보다 클 경우
+        // 요청한 asize를 할당할 수 있음
+        if(!GET_ALLOC(HDRP(bp)) && GET_SIZE(HDRP(bp))){
+            // bp 반환
+            return bp;
+        }
+    }
+    // 맞는 가용 블록이 없을 경우 NULL 리턴
+    return NULL;
 }
 
 // 들어갈 위치를 포인터로 받음(first_fit에서 찾는 bp, 크기는 asize로 받음)
