@@ -115,8 +115,6 @@ static void *coalesce(void *bp);
 static void *find_fit(size_t asize);
 static void place(void *bp, size_t asize);
 
-static void *Implicit_allocated(size_t size);
-
 static void *first_fit(size_t asize);
 // next-fit을 사용하기 위해 이전 bp를 저장하는 전역변수
 static void *last_bp;
@@ -295,11 +293,6 @@ void *mm_malloc(size_t size)
     //     return (void *)((char *)p + SIZE_T_SIZE);
     // }
 
-    return Implicit_allocated(size);
-    // return explicit_allocated(size);
-}
-
-static void *Implicit_allocated(size_t size){
     /* Adjusted block size */
     // 블록 사이즈 조정
     size_t asize;
@@ -349,10 +342,6 @@ static void *Implicit_allocated(size_t size){
     place(bp, asize);
     // place를 마친 블록 포인터를 리턴
     return bp;
-}
-
-static void *explicit_allocated(size_t size){
-
 }
 
 // 요청받은 asize에 맞는 가용 블록 탐색
@@ -521,6 +510,7 @@ void *mm_realloc(void *bp, size_t size){
             // 메모리의 특정한 부분으로부터 얼마까지의 다른 메모리 영역으로 복사해주는 함수
             // 이전 bp로부터 사이즈만큼의 문자를 새로운 bp에 복사하라
             memcpy(new_bp, bp, new_size);
+            // memmove(new_bp, bp, new_size);
 
             // 이전 bp free
             mm_free(bp);
