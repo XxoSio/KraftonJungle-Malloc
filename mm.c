@@ -115,6 +115,8 @@ static void *coalesce(void *bp);
 static void *find_fit(size_t asize);
 static void place(void *bp, size_t asize);
 
+static void *Implicit_allocated(size_t size);
+
 static void *first_fit(size_t asize);
 // next-fit을 사용하기 위해 이전 bp를 저장하는 전역변수
 static void *last_bp;
@@ -293,6 +295,11 @@ void *mm_malloc(size_t size)
     //     return (void *)((char *)p + SIZE_T_SIZE);
     // }
 
+    // return Implicit_allocated(size);
+    return explicit_allocated(size);
+}
+
+static void *Implicit_allocated(size_t size){
     /* Adjusted block size */
     // 블록 사이즈 조정
     size_t asize;
@@ -342,6 +349,10 @@ void *mm_malloc(size_t size)
     place(bp, asize);
     // place를 마친 블록 포인터를 리턴
     return bp;
+}
+
+static void *explicit_allocated(size_t size){
+
 }
 
 // 요청받은 asize에 맞는 가용 블록 탐색
@@ -432,18 +443,36 @@ static void place(void *bp, size_t asize)
  */
 void *mm_realloc(void *ptr, size_t size)
 {
+    // 이전의 포인터를 받아옴
     void *oldptr = ptr;
+    // 새로운 포인터 선언
     void *newptr;
+    // 복사할 주소 선언
     size_t copySize;
     
+    // 받아온 size로 새로운 힙 할당
     newptr = mm_malloc(size);
+
+    // 잘못된 할당 요청
     if (newptr == NULL)
+    // NULL 반환
       return NULL;
+
+    // 이전 포인터의 사이즈를 복사
     // copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
     copySize = GET_SIZE(HDRP(oldptr));
+
+    // 새롭게 할당한 사이즈가 기존의 카피사이즈 보다 작으면
     if (size < copySize)
-      copySize = size;
+        // 카피사이즈를 사이즈로 변경
+        copySize = size;
+
+    // 이전 포인터를 새로운 포인터에 카피사이즈만큼 복사
     memcpy(newptr, oldptr, copySize);
+
+    // 이전 포인터 free
     mm_free(oldptr);
+
+    // 새로운 포인터 반환
     return newptr;
 }
