@@ -295,8 +295,8 @@ void *mm_malloc(size_t size)
     //     return (void *)((char *)p + SIZE_T_SIZE);
     // }
 
-    // return Implicit_allocated(size);
-    return explicit_allocated(size);
+    return Implicit_allocated(size);
+    // return explicit_allocated(size);
 }
 
 static void *Implicit_allocated(size_t size){
@@ -438,41 +438,96 @@ static void place(void *bp, size_t asize)
     }
 }
 
+// 기존 코드
 /*
  * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
  */
-void *mm_realloc(void *ptr, size_t size)
-{
-    // 이전의 포인터를 받아옴
-    void *oldptr = ptr;
-    // 새로운 포인터 선언
-    void *newptr;
-    // 복사할 주소 선언
-    size_t copySize;
+// void *mm_realloc(void *ptr, size_t size)
+// {
+//     // 이전의 포인터를 받아옴
+//     void *oldptr = ptr;
+//     // 새로운 포인터 선언
+//     void *newptr;
+//     // 복사할 주소 선언
+//     size_t copySize;
     
-    // 받아온 size로 새로운 힙 할당
-    newptr = mm_malloc(size);
+//     // 받아온 size로 새로운 힙 할당
+//     newptr = mm_malloc(size);
 
-    // 잘못된 할당 요청
-    if (newptr == NULL)
-    // NULL 반환
-      return NULL;
+//     // 잘못된 할당 요청
+//     if (newptr == NULL)
+//     // NULL 반환
+//       return NULL;
 
-    // 이전 포인터의 사이즈를 복사
-    // copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
-    copySize = GET_SIZE(HDRP(oldptr));
+//     // 이전 포인터의 사이즈를 복사
+//     // copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
+//     copySize = GET_SIZE(HDRP(oldptr));
 
-    // 새롭게 할당한 사이즈가 기존의 카피사이즈 보다 작으면
-    if (size < copySize)
-        // 카피사이즈를 사이즈로 변경
-        copySize = size;
+//     // 새롭게 할당한 사이즈가 기존의 카피사이즈 보다 작으면
+//     if (size < copySize)
+//         // 카피사이즈를 사이즈로 변경
+//         copySize = size;
 
-    // 이전 포인터를 새로운 포인터에 카피사이즈만큼 복사
-    memcpy(newptr, oldptr, copySize);
+//     // 이전 포인터를 새로운 포인터에 카피사이즈만큼 복사
+//     memcpy(newptr, oldptr, copySize);
 
-    // 이전 포인터 free
-    mm_free(oldptr);
+//     // 이전 포인터 free
+//     mm_free(oldptr);
 
-    // 새로운 포인터 반환
-    return newptr;
+//     // 새로운 포인터 반환
+//     return newptr;
+// }
+
+// 기존 malloc으로 동적 할당된 메모리 크기를 변경시켜줌
+// 현재 메모리에 bp가 가르키는 사이즈를 할당한만큼  충분하지 않다면
+// 메모리의 다른 공간의 기존 크기의 공간 할당 + 기존에 있던 데이터를 복사한 후 추가로 메모리 할당
+void *mm_realloc(void *bp, size_t size){
+    // 예전 사이즈 받아옴
+    size_t old_size = GET_SIZE(HDRP(bp));
+    // 새로운 사이즈 할당(DSIZE는 헤더와 풋터)
+    size_t new_size = size + (DSIZE);
+
+
+    // 만약 새로운 사이즈가 이전 사이즈보다 작거나 같은 경우
+    if(new_size <= old_size){
+        // 기존의 bp 반환
+        return bp;
+    }
+    // 만약 새로운 사이즈가 이전 사이즈보다 큰 경우
+    // 사이즈 변경
+    else{
+        // 다음 블록의 할당 상태를 받아옴
+        size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
+        // 다음 블록의 사이즈를 받아옴
+        size_t current_size = old_size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
+
+        // 다음 블록이 가용 상태이고, 다음 블록의 사이즈의 합이
+        //새로운 사이즈보다 크면
+        // 바로 합쳐서 할당
+        if(!next_alloc && current_size >= new_size){
+            // 할당 상태로 헤더 추가
+            PUT(HDRP(bp), PACK(current_size, 1));
+            // 할당 상태로 풋터 추가
+            PUT(FTRP(bp), PACK(current_size, 1));
+
+            // 기존의 bp 반환
+            return bp;
+        }
+        // 새로 블록 만들어서 옮기기
+        else{
+            // 새로운 사이즈로 new bp 할당
+            void *new_bp = mm_malloc(new_size);
+            // 새로운 bp에 새로운 사이즈로 가용 블록 분항
+            place(new_bp, new_size);
+            // 메모리의 특정한 부분으로부터 얼마까지의 다른 메모리 영역으로 복사해주는 함수
+            // 이전 bp로부터 사이즈만큼의 문자를 새로운 bp에 복사하라
+            memcpy(new_bp, bp, new_size);
+
+            // 이전 bp free
+            mm_free(bp);
+
+            // 새로운 bp 반환
+            return new_bp;
+        }
+    }
 }
