@@ -630,9 +630,6 @@ team_t team = {
 //현재 블록 포인터에서 더블워드만큼 빼면 이전 블록 헤더 -> 다음 블록 footer로 가서 사이즈 읽어내기 가능
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
-#define PREDP(bp)  (*(void **)(bp))
-#define SUCCP(bp)  (*(void **)((bp)+WSIZE))
-
 // 사용하는  함수들 선언
 // int mm_init(void);
 static void *extend_heap(size_t words);
@@ -645,6 +642,8 @@ static void place(void *bp, size_t asize);
 static char *heap_listp;
 
 // explicit
+#define PRED_P(bp)  (*(void **)(bp))
+#define SUCC_P(bp)  (*(void **)((bp)+WSIZE))
 static void list_add(void *bp);
 static void list_remove(void *bp);
 
@@ -658,13 +657,12 @@ int mm_init(void)
     if((heap_listp = mem_sbrk(6*WSIZE)) == (void *) -1)
         return -1;
     
-    // 정렬 패딩
     PUT(heap_listp, 0);
     PUT(heap_listp + (1*WSIZE), PACK(2*DSIZE, 1));
-    PUT(heap_listp + (2*WSIZE), heap_listp + (3*WSIZE));
-    PUT(heap_listp + (3*WSIZE), heap_listp + (2*WSIZE));
+    PUT(heap_listp + (2*WSIZE), heap_listp+(3*WSIZE));
+    PUT(heap_listp + (3*WSIZE), heap_listp+(2*WSIZE));
     PUT(heap_listp + (4*WSIZE), PACK(2*DSIZE, 1));
-    PUT(heap_listp + (5*WSIZE), PACK(0, 1));
+    PUT(heap_listp + (5*WSIZE), PACK(0,1));
 
     // 더블워드 정렬을 사용하기 때문에 더블워드 사이즈만큼 증가
     // heap_listp += (2*WSIZE);
@@ -732,15 +730,15 @@ void mm_free(void *bp)
 }
 
 static void list_add(void *bp){
-    SUCCP(bp) = SUCCP(heap_listp);
-    PREDP(bp) = heap_listp;
-    PREDP(SUCCP(heap_listp)) = bp;
-    SUCCP(heap_listp) = bp;
+    SUCC_P(bp) = SUCC_P(heap_listp);
+    PRED_P(bp) = heap_listp;
+    PRED_P(SUCC_P(heap_listp)) = bp;
+    SUCC_P(heap_listp) = bp;
 }
 
 static void list_remove(void *bp){
-    SUCCP(PREDP(bp)) = SUCCP(bp);
-    PREDP(SUCCP(bp)) = PREDP(bp);
+    SUCC_P(PRED_P(bp)) = SUCC_P(bp);
+    PRED_P(SUCC_P(bp)) = PRED_P(bp);
 }
 
 /* 
@@ -797,7 +795,7 @@ static void *coalesce(void *bp)
     // case 4
     // 이전 블록과 현재 블록 모두 가용 상태인 경우
     else {
-        list_remove(PREV_BLKP(bp));
+	list_remove(PREV_BLKP(bp));
         list_remove(NEXT_BLKP(bp));
 
         // 이전 블록과 다음 블록의 헤더로 사이즈를 받아와 현재 블록 사이즈에 더함
@@ -888,12 +886,11 @@ void *mm_malloc(size_t size)
 static void *find_fit(size_t asize)
 {
     char *bp;
-    for(bp = SUCCP(heap_listp); !GET_ALLOC(HDRP(bp)); bp = SUCCP(bp)){
-        if(asize <= GET_SIZE(HDRP(bp))){
+    for (bp = SUCC_P(heap_listp); !GET_ALLOC(HDRP(bp)) ; bp = SUCC_P(ptr)){
+        if (asize <= GET_SIZE(HDRP(bp))){
             return bp;
         }
     }
-
     return NULL;
 }
 
