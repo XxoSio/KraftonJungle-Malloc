@@ -886,7 +886,7 @@ void *mm_malloc(size_t size)
 static void *find_fit(size_t asize)
 {
     char *bp;
-    for (bp = SUCC_P(heap_listp); !GET_ALLOC(HDRP(bp)) ; bp = SUCC_P(ptr)){
+    for (bp = SUCC_P(heap_listp); !GET_ALLOC(HDRP(bp)) ; bp = SUCC_P(bp)){
         if (asize <= GET_SIZE(HDRP(bp))){
             return bp;
         }
