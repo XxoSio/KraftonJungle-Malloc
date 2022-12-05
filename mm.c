@@ -630,6 +630,9 @@ team_t team = {
 //현재 블록 포인터에서 더블워드만큼 빼면 이전 블록 헤더 -> 다음 블록 footer로 가서 사이즈 읽어내기 가능
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
+#define PREDP(bp)  (*(void **)(bp))
+#define SUCCP(bp)  (*(void **)((bp)+WSIZE))
+
 // 사용하는  함수들 선언
 // int mm_init(void);
 static void *extend_heap(size_t words);
@@ -639,13 +642,9 @@ static void *coalesce(void *bp);
 static void *find_fit(size_t asize);
 static void place(void *bp, size_t asize);
 
-// explicit
-// 이전 블록의 풋터로 간 다음 사이즈 값을 받아 이전 블록의 시작으로 감
-#define PREDP(bp)  (*(void **)((bp)))
-#define SUCCP(bp)  (*(void **)((bp)+WSIZE))
-
 static char *heap_listp;
 
+// explicit
 static void list_add(void *bp);
 static void list_remove(void *bp);
 
