@@ -104,6 +104,8 @@ team_t team = {
 //현재 블록 포인터에서 더블워드만큼 빼면 이전 블록 헤더 -> 다음 블록 footer로 가서 사이즈 읽어내기 가능
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
+static char *heap_listp;
+
 // 사용하는  함수들 선언
 // int mm_init(void);
 static void *extend_heap(size_t words);
@@ -113,13 +115,10 @@ static void *coalesce(void *bp);
 static void *find_fit(size_t asize);
 static void place(void *bp, size_t asize);
 
-static char *heap_listp;
-
-// explicit
-#define PRED_P(bp)  (*(void **)(bp))
-#define SUCC_P(bp)  (*(void **)((bp)+WSIZE))
-static void list_add(void *bp);
-static void list_remove(void *bp);
+static void *first_fit(size_t asize);
+// next-fit을 사용하기 위해 이전 bp를 저장하는 전역변수
+static void *last_bp;
+static void *next_fit(size_t asize);
 
 /* 
  * mm_init - initialize the malloc package.
@@ -128,15 +127,17 @@ static void list_remove(void *bp);
 int mm_init(void)
 {
     // 비어있는 초기 힙 생성
-    if((heap_listp = mem_sbrk(6*WSIZE)) == (void *) -1)
+    if((heap_listp = mem_sbrk(4*WSIZE)) == (void *) -1)
         return -1;
     
+    // 정렬 패딩
     PUT(heap_listp, 0);
-    PUT(heap_listp + (1*WSIZE), PACK(2*DSIZE, 1));
-    PUT(heap_listp + (2*WSIZE), heap_listp+(3*WSIZE));
-    PUT(heap_listp + (3*WSIZE), heap_listp+(2*WSIZE));
-    PUT(heap_listp + (4*WSIZE), PACK(2*DSIZE, 1));
-    PUT(heap_listp + (5*WSIZE), PACK(0,1));
+    // 프롤로그 헤더
+    PUT(heap_listp + (1*WSIZE), PACK(DSIZE, 1));
+    // 프롤로그 풋터
+    PUT(heap_listp + (2*WSIZE), PACK(DSIZE, 1));
+    //에필로그 헤더
+    PUT(heap_listp + (3*WSIZE), PACK(0, 1));
 
     // 더블워드 정렬을 사용하기 때문에 더블워드 사이즈만큼 증가
     // heap_listp += (2*WSIZE);
@@ -145,6 +146,9 @@ int mm_init(void)
     // CHUNKSIZE 사이즈 만큼 힙을 확장해 초기 가용 블록 생성
     if(extend_heap(CHUNKSIZE/WSIZE) == NULL)
         return -1;
+    
+    // 초기화시에 last_bp를 heap_listp의 처음으로 잡아줌
+    last_bp = heap_listp;
 
     return 0;
 }
@@ -203,18 +207,6 @@ void mm_free(void *bp)
     coalesce(bp);
 }
 
-static void list_add(void *bp){
-    SUCC_P(bp) = SUCC_P(heap_listp);
-    PRED_P(bp) = heap_listp;
-    PRED_P(SUCC_P(heap_listp)) = bp;
-    SUCC_P(heap_listp) = bp;
-}
-
-static void list_remove(void *bp){
-    SUCC_P(PRED_P(bp)) = SUCC_P(bp);
-    PRED_P(SUCC_P(bp)) = PRED_P(bp);
-}
-
 /* 
     coalesce - uses boundary-tag coalescing to merge it with any adjacent free bloacks in constant time
 */
@@ -233,7 +225,8 @@ static void *coalesce(void *bp)
     // 이전과 다음 블록 모두가 할당되어 있는 경우
     if(prev_alloc && next_alloc)
     {
-        list_add(bp);
+        // 연결한 가용 블록의 bp로 last_bp 수정
+        last_bp = bp;
 
         // 이미 free에서 가용되었으니 여기서는 따로 free할 필요없음
         // 현재 블록만 반환
@@ -243,8 +236,6 @@ static void *coalesce(void *bp)
     // 이전 블록은 할당, 다음 블록은 가용 상태인 경우
     // 현재 블록과 다음 블록을 연결
     else if(prev_alloc && !next_alloc){
-        list_remove(NEXT_BLKP(bp));
-
         // 다음 블록의 헤더로 다음 블록의 사이즈를 받아와 현재 블록 사이즈에 더함
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
         // 헤더 갱신
@@ -255,8 +246,6 @@ static void *coalesce(void *bp)
     // case 3
     // 이전 블록은 가용, 다음 블록은 할당 상태인 경우
     else if(!prev_alloc && next_alloc){
-        list_remove(PREV_BLKP(bp));
-
         // 이전 블록의 헤더로 사이즈를 받아와 현재 블록 사이즈에 더함
         size += GET_SIZE(HDRP(PREV_BLKP(bp)));
         // 풋터 갱신
@@ -269,9 +258,6 @@ static void *coalesce(void *bp)
     // case 4
     // 이전 블록과 현재 블록 모두 가용 상태인 경우
     else {
-	list_remove(PREV_BLKP(bp));
-        list_remove(NEXT_BLKP(bp));
-
         // 이전 블록과 다음 블록의 헤더로 사이즈를 받아와 현재 블록 사이즈에 더함
         size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
         // 이전 블록의 헤더 갱신
@@ -282,7 +268,9 @@ static void *coalesce(void *bp)
         bp = PREV_BLKP(bp);
     }
 
-    list_add(bp);
+    // 연결한 가용 블록의 bp로 last_bp 수정
+    last_bp = bp;
+
     // 위 4개의 case중 한개를 마치고 블록 포인터 리턴
     return bp;
 }
@@ -359,24 +347,60 @@ void *mm_malloc(size_t size)
 // 요청받은 asize에 맞는 가용 블록 탐색
 static void *find_fit(size_t asize)
 {
-    char *bp;
-    for (bp = SUCC_P(heap_listp); !GET_ALLOC(HDRP(bp)) ; bp = SUCC_P(bp)){
-        if (asize <= GET_SIZE(HDRP(bp))){
+    // return first_fit(asize);
+    return next_fit(asize);
+}
+
+// 메모리의 처음부터 끝까지 검사해서 크기가 충분한 첫번째 메모리 할당
+static void *first_fit(size_t asize){
+    // bp 선언
+    void *bp;
+
+    // init에서 쓴 heap_listp 사용
+    // 처음에서 출발하여 헤더의 사이즈가 0이 될때(에필로그 헤더의 크기 = 0)까지 다음 블록으로 넘거가며 탐색
+    for(bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
+        // 찾은 블록이 가용 블록이면서 사이즈가 asize보다 클 경우
+        // 요청한 asize를 할당할 수 있음
+        if(!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))){
+            // bp 반환
             return bp;
         }
     }
+    // 맞는 가용 블록이 없을 경우 NULL 리턴
+    return NULL;
+}
+
+// 이전 검색이 종료된 지점부터 검사 시작
+static void *next_fit(size_t asize){
+    void *bp;
+
+        for(bp = last_bp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
+        if(!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))){
+            // 탐색을 끝낸 bp의 위치로 last_bp 변경
+            last_bp = bp;
+            return bp;
+        }
+    }
+
+    // 만약 이전 탐색 위치(last_bp)에서 끝까지중 맞는 가용 블록이 없을경우
+    // 처음부터 이전 탐색 위치(last_bp)까지 탐색
+    for(bp = heap_listp; bp < last_bp; bp = NEXT_BLKP(bp)){
+        if(!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))){
+            last_bp = bp;
+            return bp;
+        }
+    }    
+
     return NULL;
 }
 
 // 들어갈 위치를 포인터로 받음(first_fit에서 찾는 bp, 크기는 asize로 받음)
-// 요청한 블록을 가용 블cccccccccccc록의 시작 부분에 배치
+// 요청한 블록을 가용 블록의 시작 부분에 배치
 // 나머지 부분의 크기가 최소 블록 크기와 같거나 큰 경우에만 분할하는 함수
 static void place(void *bp, size_t asize)
 {
     // 현재 블록 사이즈
     size_t csize = GET_SIZE(HDRP(bp));
-
-    list_remove(bp);
 
     // 현재 블록 사이즈 안에 요청받은 asize를 넣어도
     // 2*DSIZE(헤더와 풋터를 감안한 최소 사이즈) 이상 남는 경우
@@ -393,8 +417,6 @@ static void place(void *bp, size_t asize)
         PUT(HDRP(bp), PACK(csize - asize, 0));
         // 풋터의 표시
         PUT(FTRP(bp), PACK(csize - asize, 0));
-
-        list_add(bp);
     }
     // size가 asize의 크기와 같음 -> asize만 size에 들어갈 수 있음
     else{
