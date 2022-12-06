@@ -374,7 +374,7 @@ static void *first_fit(size_t asize){
 static void *next_fit(size_t asize){
     void *bp;
 
-        for(bp = last_bp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
+    for(bp = last_bp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
         if(!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))){
             // 탐색을 끝낸 bp의 위치로 last_bp 변경
             last_bp = bp;
@@ -477,6 +477,7 @@ void *mm_realloc(void *bp, size_t size){
     size_t old_size = GET_SIZE(HDRP(bp));
     // 새로운 사이즈 할당(DSIZE는 헤더와 풋터)
     size_t new_size = size + (DSIZE);
+
 
     // 만약 새로운 사이즈가 이전 사이즈보다 작거나 같은 경우
     if(new_size <= old_size){

@@ -374,7 +374,7 @@ static void *first_fit(size_t asize){
 static void *next_fit(size_t asize){
     void *bp;
 
-        for(bp = last_bp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
+    for(bp = last_bp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
         if(!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))){
             // 탐색을 끝낸 bp의 위치로 last_bp 변경
             last_bp = bp;
