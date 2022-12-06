@@ -357,9 +357,11 @@ void *mm_realloc(void *bp, size_t size){
         size_t current_size = old_size + GET_SIZE(HDRP(NEXT_BLKP(bp)));
 
         if(!next_alloc && current_size >= new_size){
+            list_remove(NEXT_BLKP(bp));
+
             PUT(HDRP(bp), PACK(current_size, 1));
             PUT(FTRP(bp), PACK(current_size, 1));
-            
+
             return bp;
         }
         else{
