@@ -350,8 +350,8 @@ void *mm_realloc(void *bp, size_t size){
     size_t old_size = GET_SIZE(HDRP(bp));
     // 새로운 사이즈 할당(DSIZE는 헤더와 풋터)
     size_t new_size = size + (DSIZE);
-
-
+​
+​
     // 만약 새로운 사이즈가 이전 사이즈보다 작거나 같은 경우
     if(new_size <= old_size){
         // 기존의 bp 반환
@@ -362,17 +362,20 @@ void *mm_realloc(void *bp, size_t size){
     else{
         // 다음 블록의 할당 상태를 받아옴
         size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
-        // 다음 블록의 사이즈를 받아와 예전 사이즈와 합침
+        // 다음 블록의 사이즈를 받아옴
         size_t current_size = old_size + GET_SIZE(HDRP(NEXT_BLKP(bp)));
-
-        // 다음 블록이 가용 상태이고, 다음 블록의 사이즈의 합이 새로운 사이즈보다 클 경우
+​
+        // 다음 블록이 가용 상태이고, 다음 블록의 사이즈의 합이
+        //새로운 사이즈보다 크면
         // 바로 합쳐서 할당
         if(!next_alloc && current_size >= new_size){
             // 할당 상태로 헤더 추가
+            list_remove(NEXT_BLKP(bp));
+		
             PUT(HDRP(bp), PACK(current_size, 1));
             // 할당 상태로 풋터 추가
             PUT(FTRP(bp), PACK(current_size, 1));
-            
+    
             // 기존의 bp 반환
             return bp;
         }
@@ -380,18 +383,16 @@ void *mm_realloc(void *bp, size_t size){
         else{
             // 새로운 사이즈로 new bp 할당
             void *new_bp = mm_malloc(new_size);
+            if (new_bp == NULL) return NULL;
             // 새로운 bp에 새로운 사이즈로 가용 블록 분항
-            place(new_bp, new_size);
+            // place(new_bp, new_size);
             // 메모리의 특정한 부분으로부터 얼마까지의 다른 메모리 영역으로 복사해주는 함수
             // 이전 bp로부터 사이즈만큼의 문자를 새로운 bp에 복사하라
-            memcpy(new_bp, bp, new_size);
-            // memmove(new_bp, bp, new_size);
-
+            // memcpy(new_bp, bp, new_size);
+            memmove(new_bp, bp, new_size);
             // 이전 bp free
             mm_free(bp);
-
             // 새로운 bp 반환
             return new_bp;
         }
     }
-}
