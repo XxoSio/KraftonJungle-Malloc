@@ -478,6 +478,7 @@ void *mm_realloc(void *bp, size_t size){
     // 새로운 사이즈 할당(DSIZE는 헤더와 풋터)
     size_t new_size = size + (DSIZE);
 
+
     // 만약 새로운 사이즈가 이전 사이즈보다 작거나 같은 경우
     if(new_size <= old_size){
         // 기존의 bp 반환
