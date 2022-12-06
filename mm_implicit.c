@@ -467,56 +467,97 @@ static void place(void *bp, size_t asize)
 //     return newptr;
 // }
 
+// 다음 가용 블록의 사이즈가 커도
+// 나누지 않고 모두 할당하는 경우
 // 기존 malloc으로 동적 할당된 메모리 크기를 변경시켜줌
 // 현재 메모리에 bp가 가르키는 사이즈를 할당한만큼  충분하지 않다면
 // 메모리의 다른 공간의 기존 크기의 공간 할당 + 기존에 있던 데이터를 복사한 후 추가로 메모리 할당
-void *mm_realloc(void *bp, size_t size){
-    // 예전 사이즈 받아옴
-    size_t old_size = GET_SIZE(HDRP(bp));
-    // 새로운 사이즈 할당(DSIZE는 헤더와 풋터)
-    size_t new_size = size + (DSIZE);
+// void *mm_realloc(void *bp, size_t size){
+//     // 예전 사이즈 받아옴
+//     size_t old_size = GET_SIZE(HDRP(bp));
+//     // 새로운 사이즈 할당(DSIZE는 헤더와 풋터)
+//     size_t new_size = size + (DSIZE);
 
 
-    // 만약 새로운 사이즈가 이전 사이즈보다 작거나 같은 경우
-    if(new_size <= old_size){
-        // 기존의 bp 반환
-        return bp;
-    }
-    // 만약 새로운 사이즈가 이전 사이즈보다 큰 경우
-    // 사이즈 변경
-    else{
-        // 다음 블록의 할당 상태를 받아옴
-        size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
-        // 다음 블록의 사이즈를 받아와 예전 사이즈와 합침
-        size_t current_size = old_size + GET_SIZE(HDRP(NEXT_BLKP(bp)));
+//     // 만약 새로운 사이즈가 이전 사이즈보다 작거나 같은 경우
+//     if(new_size <= old_size){
+//         // 기존의 bp 반환
+//         return bp;
+//     }
+//     // 만약 새로운 사이즈가 이전 사이즈보다 큰 경우
+//     // 사이즈 변경
+//     else{
+//         // 다음 블록의 할당 상태를 받아옴
+//         size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
+//         // 다음 블록의 사이즈를 받아와 예전 사이즈와 합침
+//         size_t current_size = old_size + GET_SIZE(HDRP(NEXT_BLKP(bp)));
 
-        // 다음 블록이 가용 상태이고, 다음 블록의 사이즈의 합이 새로운 사이즈보다 클 경우
-        // 바로 합쳐서 할당
-        if(!next_alloc && current_size >= new_size){
-            // 할당 상태로 헤더 추가
-            PUT(HDRP(bp), PACK(current_size, 1));
-            // 할당 상태로 풋터 추가
-            PUT(FTRP(bp), PACK(current_size, 1));
+//         // 다음 블록이 가용 상태이고, 다음 블록의 사이즈의 합이 새로운 사이즈보다 클 경우
+//         // 바로 합쳐서 할당
+//         if(!next_alloc && current_size >= new_size){
+//             // 할당 상태로 헤더 추가
+//             PUT(HDRP(bp), PACK(current_size, 1));
+//             // 할당 상태로 풋터 추가
+//             PUT(FTRP(bp), PACK(current_size, 1));
             
-            // 기존의 bp 반환
-            return bp;
-        }
-        // 새로 블록 만들어서 옮기기
-        else{
-            // 새로운 사이즈로 new bp 할당
-            void *new_bp = mm_malloc(new_size);
-            // 새로운 bp에 새로운 사이즈로 가용 블록 분항
-            place(new_bp, new_size);
-            // 메모리의 특정한 부분으로부터 얼마까지의 다른 메모리 영역으로 복사해주는 함수
-            // 이전 bp로부터 사이즈만큼의 문자를 새로운 bp에 복사하라
-            memcpy(new_bp, bp, new_size);
-            // memmove(new_bp, bp, new_size);
+//             // 기존의 bp 반환
+//             return bp;
+//         }
+//         // 새로 블록 만들어서 옮기기
+//         else{
+//             // 새로운 사이즈로 new bp 할당
+//             void *new_bp = mm_malloc(new_size);
+//             // 새로운 bp에 새로운 사이즈로 가용 블록 분항
+//             place(new_bp, new_size);
+//             // 메모리의 특정한 부분으로부터 얼마까지의 다른 메모리 영역으로 복사해주는 함수
+//             // 이전 bp로부터 사이즈만큼의 문자를 새로운 bp에 복사하라
+//             memcpy(new_bp, bp, new_size);
+//             // memmove(new_bp, bp, new_size);
 
-            // 이전 bp free
-            mm_free(bp);
+//             // 이전 bp free
+//             mm_free(bp);
 
-            // 새로운 bp 반환
-            return new_bp;
-        }
+//             // 새로운 bp 반환
+//             return new_bp;
+//         }
+//     }
+// }
+
+// 다음 가용 블럭의 사이즈가 커도 분할하여 할당하는 경우
+void *mm_realloc(void *ptr, size_t size)
+{
+    void *oldptr = ptr;
+    void *newptr;
+    size_t copySize;
+    
+    // adjust block size to include overhead and aligment reqs.
+    size_t new_size;
+    if(size <= DSIZE)
+        new_size = 2 * DSIZE;
+    else{
+        new_size = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);
     }
-}
+    // (size/WSIZE % 2) ? (size/WSIZE + 1) * WSIZE : size/WSIZE * WSIZE;
+    //새로 할당할 사이즈가 본래 사이즈보다 작거나 같을 때
+    //즉시 반환
+    copySize = GET_SIZE(HDRP(oldptr));
+    if (new_size <= copySize)
+        return oldptr;
+
+    // 사이즈가 본래 사이즈 보다 크고, 다음 블럭이 가용 블럭 일 경우
+    size_t size_sum = GET_SIZE(HDRP(NEXT_BLKP(oldptr))) + GET_SIZE(HDRP(oldptr));
+    if (!GET_ALLOC(HDRP(NEXT_BLKP(oldptr))) && size_sum >= new_size)
+    {
+        if (size_sum - new_size < 2*DSIZE)
+        {
+            PUT(HDRP(oldptr), PACK(size_sum, 1));
+            PUT(FTRP(oldptr), PACK(size_sum, 1));
+        }else{
+            PUT(HDRP(oldptr), PACK(new_size, 1));
+            PUT(FTRP(oldptr), PACK(new_size, 1));
+            oldptr = NEXT_BLKP(oldptr);
+            PUT(HDRP(oldptr), PACK(size_sum - new_size, 0));
+            PUT(FTRP(oldptr), PACK(size_sum - new_size, 0));
+        }
+        return ptr;
+    }
