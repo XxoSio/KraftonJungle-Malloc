@@ -350,8 +350,7 @@ void *mm_realloc(void *bp, size_t size){
     size_t old_size = GET_SIZE(HDRP(bp));
     // 새로운 사이즈 할당(DSIZE는 헤더와 풋터)
     size_t new_size = size + (DSIZE);
-​
-​
+
     // 만약 새로운 사이즈가 이전 사이즈보다 작거나 같은 경우
     if(new_size <= old_size){
         // 기존의 bp 반환
@@ -364,14 +363,13 @@ void *mm_realloc(void *bp, size_t size){
         size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
         // 다음 블록의 사이즈를 받아옴
         size_t current_size = old_size + GET_SIZE(HDRP(NEXT_BLKP(bp)));
-​
+
         // 다음 블록이 가용 상태이고, 다음 블록의 사이즈의 합이
         //새로운 사이즈보다 크면
         // 바로 합쳐서 할당
         if(!next_alloc && current_size >= new_size){
             // 할당 상태로 헤더 추가
             list_remove(NEXT_BLKP(bp));
-		
             PUT(HDRP(bp), PACK(current_size, 1));
             // 할당 상태로 풋터 추가
             PUT(FTRP(bp), PACK(current_size, 1));
@@ -396,3 +394,4 @@ void *mm_realloc(void *bp, size_t size){
             return new_bp;
         }
     }
+}
