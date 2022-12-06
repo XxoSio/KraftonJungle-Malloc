@@ -312,7 +312,7 @@ static void *find_fit(size_t asize)
     char *bp;
 	
     for (bp = SUCC_P(heap_listp); !GET_ALLOC(HDRP(bp)); bp = SUCC_P(bp)) 
-        if(GET_SIZE(HDRP(bp)) >= size)
+        if(GET_SIZE(HDRP(bp)) >= asize)
             return bp;
     
     return NULL;
