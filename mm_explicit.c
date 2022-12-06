@@ -120,7 +120,9 @@ static char *heap_listp;
 #define SUCC_P(bp)  (*(void **)(bp))
 // 이전의 가용블록의 위치를 저장하는 포인터를 저장하는 포인터
 #define PRED_P(bp)  (*(void **)((bp)+WSIZE))
+// 가용 리스트에 새로운 가용 리스트 블록을 추가
 static void list_add(void *bp);
+// 가용 리스트에 있는 가용 리스트 블록을 삭제
 static void list_remove(void *bp);
 
 /* 
@@ -129,6 +131,7 @@ static void list_remove(void *bp);
 // malloc 초기화
 int mm_init(void)
 {
+    // 패딩, 헤더, 가용 리스트 * 2, 풋터, 에필로그 -> 총 6*WSIZE로 받음
     if((heap_listp = mem_sbrk(6*WSIZE)) == (void *) -1)
         return -1;
 	
@@ -196,6 +199,7 @@ void mm_free(void *bp)
 
 // 루트 바로 뒤(오른쪽)에 새로운 가용 블록을 연결해줌
 static void list_add(void *bp){
+    // 
     SUCC_P(bp) = SUCC_P(heap_listp);
     PRED_P(bp) = heap_listp;
     PRED_P(SUCC_P(heap_listp)) = bp;
