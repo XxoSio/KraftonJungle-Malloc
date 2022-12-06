@@ -21,6 +21,18 @@
 #include "mm.h"
 #include "memlib.h"
 
+team_t team = {
+    /* Team name */
+    "ateam",
+    /* First member's full name */
+    "Harry Bovik",
+    /* First member's email address */
+    "bovik@cs.cmu.edu",
+    /* Second member's full name (leave blank if none) */
+    "",
+    /* Second member's email address (leave blank if none) */
+    ""
+};
 
 /* single word (4) or double word (8) alignment */
 #define ALIGNMENT 8
