@@ -82,8 +82,8 @@ static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
 static void *find_fit(size_t asize);
 static void place(void *bp, size_t asize);
-static void remove_block(void *bp);
-static void insert_block(void *bp, size_t size);
+static void list_remove(void *bp);
+static void list_add(void *bp, size_t size);
 
 
 /* 
@@ -174,7 +174,7 @@ void *mm_realloc(void *bp, size_t size){
         size_t current_size = old_size + GET_SIZE(HDRP(NEXT_BLKP(bp)));
 
         if(!next_alloc && current_size >= new_size){
-            remove_block(NEXT_BLKP(bp));
+            list_remove(NEXT_BLKP(bp));
 
             PUT(HDRP(bp), PACK(current_size, 1));
             PUT(FTRP(bp), PACK(current_size, 1));
@@ -226,12 +226,12 @@ static void *coalesce(void *bp)
     size_t size = GET_SIZE(HDRP(bp));
 
     if (prev_alloc && next_alloc){ // 앞,뒤 모두 allocated
-        insert_block(bp,size);      
+        list_add(bp,size);      
         return bp;
     }
     else if (prev_alloc && !next_alloc) // 앞은 allocated, 바로 뒤에 free block이 존재할 때
     {
-        remove_block(NEXT_BLKP(bp)); // 뒤 블록을 일단 지워(나중에 합쳐서 insert 해줄거야)
+        list_remove(NEXT_BLKP(bp)); // 뒤 블록을 일단 지워(나중에 합쳐서 insert 해줄거야)
 
         size += GET_SIZE(HDRP(NEXT_BLKP(bp))); // 합친 블록 사이즈
         PUT(HDRP(bp), PACK(size, 0));
@@ -239,7 +239,7 @@ static void *coalesce(void *bp)
     }
     else if (!prev_alloc && next_alloc) // 앞은 free block, 뒤는 allocated
     {
-        remove_block(PREV_BLKP(bp)); // 앞 블록을 일단 지워(나중에 합체하고 insert 해줄거야)
+        list_remove(PREV_BLKP(bp)); // 앞 블록을 일단 지워(나중에 합체하고 insert 해줄거야)
 
         size += GET_SIZE(HDRP(PREV_BLKP(bp)));
         PUT(FTRP(bp), PACK(size, 0));
@@ -248,8 +248,8 @@ static void *coalesce(void *bp)
     }
     else if (!prev_alloc && !next_alloc) // 앞과 뒤 모두 free block일 경우
     {
-        remove_block(PREV_BLKP(bp)); // 다 지워
-        remove_block(NEXT_BLKP(bp));
+        list_remove(PREV_BLKP(bp)); // 다 지워
+        list_remove(NEXT_BLKP(bp));
 
         size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
@@ -257,7 +257,7 @@ static void *coalesce(void *bp)
         bp = PREV_BLKP(bp); // 앞으로 bp 옮겨줘야함
     }
 
-    insert_block(bp, size); // 드디어 insert! (coalesce를 하면 무조건 insert가 실행됨)
+    list_add(bp, size); // 드디어 insert! (coalesce를 하면 무조건 insert가 실행됨)
     return bp;
 }
 
@@ -265,7 +265,7 @@ static void place(void *bp, size_t asize)
 {
     size_t csize = GET_SIZE(HDRP(bp));
     // allocate된 블록은 freelist에서 지운다.
-    remove_block(bp);
+    list_remove(bp);
     // 필요한 블록 이외에 남는게 16바이트 이상이면 - (header,pred,succ,footer 각각 16byte필요)
     if ((csize - asize) >= (2 * DSIZE)) //분할을 진행한다.
     {   // 일단 할당블록 처리
@@ -315,7 +315,7 @@ static void *find_fit(size_t asize)
 // #endif
 }
 
-static void remove_block(void *bp){
+static void list_remove(void *bp){
     int list = 0;
     size_t size = GET_SIZE(HDRP(bp));
 
@@ -342,7 +342,7 @@ static void remove_block(void *bp){
     return;
 }
 
-static void insert_block(void *bp, size_t size){
+static void list_add(void *bp, size_t size){
     int list = 0;
     void *search_ptr;
     void *insert_ptr = NULL; //search_ptr의 값을 저장해놓는 용도(insert_ptr의 부모같음)
