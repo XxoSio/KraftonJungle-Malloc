@@ -199,16 +199,23 @@ void mm_free(void *bp)
 
 // 루트 바로 뒤(오른쪽)에 새로운 가용 블록을 연결해줌
 static void list_add(void *bp){
-    // 
+	// 새롭게 들어온 블록의 다음과 이전 값 생성
+    // bp 블록의 다음 위치 값에 heap_listp 블록의 다음 위치 값을 넣어줌
     SUCC_P(bp) = SUCC_P(heap_listp);
+	// bp 블록의 이전 위치 값으로 heap_listp을 넣어줌
     PRED_P(bp) = heap_listp;
+	// 기존 인접한 두 블록의 연결 갱신
+	// heap_listp 블록의 다음 위치이 가리키는 블록의 이전 값을 bp로 갱신
     PRED_P(SUCC_P(heap_listp)) = bp;
+	// heap_listp 블록의 다음 위치 값을 bp로 갱신
     SUCC_P(heap_listp) = bp;
 }
 
-// 루트 바로 뒤(오른쪽)에 새로운 가용 블록을 연결해줌
+// free list에서 기존의 블럭을 삭제
 static void list_remove(void *bp){
+	// bp의 다음 위치가 가리키는 블록의 이전 위치 값에 bp의 이전 위치 값을 넣어줌
     PRED_P(SUCC_P(bp)) = PRED_P(bp);
+	// bp의 이전 위치가 가리키는 블록의 다음 위치 값에 bp의 다음 위치 값을 넣어줌
     SUCC_P(PRED_P(bp)) = SUCC_P(bp);
 }
 
@@ -225,20 +232,29 @@ static void *coalesce(void *bp)
     // case 1
     if(prev_alloc && next_alloc)
     {
+		// bp 블록만 가용 블록이 되므로
+		// bp 블록만 free list에 넣어줌
         list_add(bp);
+		
         return bp;
     }
     // case 2
     else if(prev_alloc && !next_alloc){
+		// 다음 블록이 가용 상태였으므로
+		// free list에 있는 블록을 지워줌
+		// 나중에 한번에 add 할 것임
         list_remove(NEXT_BLKP(bp));
 
-	size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
+		size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
 
-	PUT(HDRP(bp), PACK(size, 0));
+		PUT(HDRP(bp), PACK(size, 0));
         PUT(FTRP(bp), PACK(size, 0));
     }
     // case 3
     else if(!prev_alloc && next_alloc){
+		// 이전 블록이 가용 상태였으므로
+		// free list에 있는 블록을 지워줌
+		// 나중에 한번에 add 할 것임
         list_remove(PREV_BLKP(bp));
 
         size += GET_SIZE(HDRP(PREV_BLKP(bp)));
@@ -250,6 +266,9 @@ static void *coalesce(void *bp)
     }
     // case 4
     else {
+		// 인접 블록이 모두 가용 상태였으므로
+		// free list에 있는 블록을 지워줌
+		// 나중에 한번에 add 할 것임
 	    list_remove(PREV_BLKP(bp));
         list_remove(NEXT_BLKP(bp));
 
@@ -262,6 +281,7 @@ static void *coalesce(void *bp)
         bp = PREV_BLKP(bp);
     }
 
+	// 새롭게 만들어진 가용 블록을 free list에 넣어줌
     list_add(bp);
 
     return bp;
@@ -315,17 +335,23 @@ static void *find_fit(size_t asize)
 {
     char *bp;
 	
+	// free list의 처음부터 다음 가용블록으로 넘어가면서
+	// 할당이 되어있는 블록(에필로그)까지 탐색
     for (bp = SUCC_P(heap_listp); !GET_ALLOC(HDRP(bp)); bp = SUCC_P(bp)) 
+		// 탐색중 할당하고자 하는 블록의 사이즈와 같거나 크다면 해당 bp 리턴
         if(GET_SIZE(HDRP(bp)) >= asize)
             return bp;
     
     return NULL;
 }
 
+// 가용 블록을 분할
 static void place(void *bp, size_t asize)
 {
     size_t csize = GET_SIZE(HDRP(bp));
 
+	// place 함수는 가용블록을 나눠 할당 블록과 가용 블록으로 나누는 함수이므로
+	// 기존의 가용 블록을 free list에서 삭제
     list_remove(bp);
 
     if((csize - asize) >= (2*DSIZE))
@@ -338,6 +364,8 @@ static void place(void *bp, size_t asize)
         PUT(HDRP(bp), PACK(csize - asize, 0));
         PUT(FTRP(bp), PACK(csize - asize, 0));
 
+		// 위에서 가용 블록을 나눠 새로운 가용 블록이 만들어졌으므로
+		// 새로운 가용 블록을 free list에 추가
         list_add(bp);
     }
     else{
@@ -360,7 +388,10 @@ void *mm_realloc(void *bp, size_t size){
         size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
         size_t current_size = old_size + GET_SIZE(HDRP(NEXT_BLKP(bp)));
 
+		// 다음 블록이 가용 블록이고, 이전 사이즈와 가용 블록의 합이 새롭게 요청한 사이즈와 같거나 큰 경우
         if(!next_alloc && current_size >= new_size){
+			// 다음 가용 블록을 할당으로 바꿔줘야 하므로
+			// free list에서 다음 가용 블록을 제거
             list_remove(NEXT_BLKP(bp));
 
             PUT(HDRP(bp), PACK(current_size, 1));
