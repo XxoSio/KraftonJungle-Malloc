@@ -250,14 +250,14 @@ static void *coalesce(void *bp)
     }
     // case 4
     else {
-	list_remove(PREV_BLKP(bp));
+	    list_remove(PREV_BLKP(bp));
         list_remove(NEXT_BLKP(bp));
 
         size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
 
-	PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
+    	PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
 
-	PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
+	    PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
 	    
         bp = PREV_BLKP(bp);
     }
